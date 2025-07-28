@@ -5,12 +5,13 @@
     <title>Redirecionando...</title>
     <script>
         // Salva a URL completa que o usuário tentou acessar.
+        // O router.js usará isso para carregar a página correta.
         sessionStorage.redirect = location.href;
     </script>
-    <!-- Redireciona para a raiz do repositório Mafagafo. -->
+    <!-- Redireciona imediatamente para a raiz do PROJETO, não do domínio. -->
     <meta http-equiv="refresh" content="0;URL='/mafagafo/'">
 </head>
 <body>
-    <p>Se você não for redirecionado, <a href="/mafagafo/">clique aqui</a>.</p>
+    <p>Se você não for redirecionado automaticamente, <a href="/mafagafo/">clique aqui</a>.</p>
 </body>
 </html>
