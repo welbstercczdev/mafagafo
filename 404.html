@@ -4,10 +4,25 @@
     <meta charset="utf-8">
     <title>Redirecionando...</title>
     <script>
+        // Guarda a URL que o usuário tentou acessar.
+        // O nosso router.js vai usar isso para ir para a página certa.
         sessionStorage.redirect = location.href;
+
+        // Pega o nome do repositório da URL atual.
+        // Ex: de "/mafagafo/login", ele extrai "mafagafo"
+        const repoName = location.pathname.split('/')[1];
+
+        // Constrói a URL correta para a raiz do projeto e redireciona.
+        // Isso nos leva de volta para a página index.html do projeto.
+        location.href = '/' + repoName + '/';
     </script>
-    <meta http-equiv="refresh" content="0;URL='/'">
 </head>
 <body>
+    <p>Se você não for redirecionado, <a id="redirect-link" href="">clique aqui</a>.</p>
+    <script>
+        // Bônus: Atualiza o link de fallback para o usuário.
+        const repoName = location.pathname.split('/')[1];
+        document.getElementById('redirect-link').href = '/' + repoName + '/';
+    </script>
 </body>
 </html>
