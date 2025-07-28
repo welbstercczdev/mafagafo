@@ -1,60 +1,60 @@
-// assets/js/app.js
 const app = {
-    // !!! IMPORTANTE: Substitua pela URL do seu App Script publicado !!!
-    apiBaseUrl: 'https://script.google.com/macros/s/SUA_ID_DA_IMPLANTACAO/exec',
+    // !! URL DA SUA API - CORRETA E INSERIDA !!
+    apiBaseUrl: 'https://script.google.com/macros/s/AKfycbxAHYiMkLBiO_rPcjFbVoJazEvFattfVMIaWjBP8csZ5mv1Hk88t4MzWcq5jv8wKnagLg/exec',
     
-    // Estado da aplicação
+    // Armazena o estado da aplicação (usuário logado, token).
     state: {
         user: null,
         token: localStorage.getItem('mafagafo_token')
     },
 
-    // Ponto de entrada
+    // Ponto de entrada da aplicação.
     init() {
-        this.setupRouter();
-        this.checkAuth();
+        this.checkAuthAndRoute();
     },
 
-    // Configura as rotas
-    setupRouter() {
-        router.add('/login', 'views/login.html');
-        router.add('/register', 'views/register.html');
-        router.add('/dashboard', 'views/dashboard.html');
-        router.init();
-    },
-
-    // Verifica se o usuário está autenticado
-    async checkAuth() {
+    // Verifica se existe um token, valida-o e depois inicializa o roteador.
+    // Isso garante que sabemos o status de login ANTES de decidir qual página mostrar.
+    async checkAuthAndRoute() {
         if (this.state.token) {
             const result = await this.apiRequest('GET', { action: 'verifyToken', token: this.state.token });
             if (result.success) {
                 this.state.user = result.user;
-                if (window.location.pathname !== '/dashboard') {
-                    history.pushState({ path: '/dashboard' }, '', '/dashboard');
-                    router.resolve('/dashboard');
-                }
             } else {
-                this.logout(); // Token inválido ou expirado
+                // Se o token for inválido (expirado, etc.), limpa o estado.
+                this.state.token = null;
+                localStorage.removeItem('mafagafo_token');
             }
-        } else {
-             if (window.location.pathname === '/dashboard') {
-                 this.logout(); // Protege a rota do dashboard
-             }
         }
+        // Agora que o estado de autenticação está definido, o roteador pode começar.
+        router.init();
     },
 
-    // Inicializa a lógica específica de cada página
+    // Chamado pelo roteador depois que uma nova view é carregada no DOM.
     initPage(path) {
+        // Lógica de proteção de rotas.
+        if (path === '/dashboard' && !this.state.user) {
+            return this.logout(); // Se não estiver logado, não pode acessar o dashboard.
+        }
+        if ((path === '/login' || path === '/register') && this.state.user) {
+            // Se já estiver logado, redireciona para o dashboard.
+            history.replaceState({ path: router.repoName + '/dashboard' }, '', router.repoName + '/dashboard');
+            return router.resolve(router.repoName + '/dashboard');
+        }
+
+        // Adiciona os eventos específicos da página que acabou de ser carregada.
         if (path === '/login') this.initLoginPage();
         if (path === '/register') this.initRegisterPage();
         if (path === '/dashboard') this.initDashboardPage();
     },
 
-    // Lógica da Página de Login
+    // Adiciona o evento de submit ao formulário de login.
     initLoginPage() {
         const form = document.getElementById('login-form');
+        if(!form) return; // Segurança caso o elemento não exista.
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
+            this.displayError(''); // Limpa mensagens de erro antigas.
             const email = form.email.value;
             const password = form.password.value;
             const passwordHash = CryptoJS.SHA256(password).toString();
@@ -66,20 +66,21 @@ const app = {
             if (result.success) {
                 localStorage.setItem('mafagafo_token', result.token);
                 this.state.token = result.token;
-                this.state.user = (await this.apiRequest('GET', { action: 'verifyToken', token: result.token })).user;
-                history.pushState({ path: '/dashboard' }, '', '/dashboard');
-                router.resolve('/dashboard');
+                // Valida o token e recarrega a aplicação no estado "logado".
+                await this.checkAuthAndRoute(); 
             } else {
-                this.displayError(result.message || 'Falha no login.');
+                this.displayError(result.message || 'Falha no login. Verifique suas credenciais.');
             }
         });
     },
 
-    // Lógica da Página de Cadastro
+    // Adiciona o evento de submit ao formulário de registro.
     initRegisterPage() {
         const form = document.getElementById('register-form');
+        if(!form) return;
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
+            this.displayError('');
             const nome = form.name.value;
             const email = form.email.value;
             const password = form.password.value;
@@ -90,44 +91,46 @@ const app = {
             this.toggleLoader(false, 'register-button');
 
             if (result.success) {
-                alert('Cadastro realizado com sucesso! Faça o login.');
-                history.pushState({ path: '/login' }, '', '/login');
-                router.resolve('/login');
+                alert('Cadastro realizado com sucesso! Você será redirecionado para a tela de login.');
+                // Navega para a página de login usando o roteador.
+                history.pushState({ path: router.repoName + '/login' }, '', router.repoName + '/login');
+                router.resolve(router.repoName + '/login');
             } else {
-                this.displayError(result.message || 'Falha no cadastro.');
+                this.displayError(result.message || 'Não foi possível realizar o cadastro.');
             }
         });
     },
 
-    // Lógica da Página do Dashboard
+    // Preenche os dados do usuário no dashboard e adiciona evento de logout.
     initDashboardPage() {
-        if (!this.state.user) {
-            this.logout();
-            return;
-        }
+        if (!this.state.user) return this.logout();
+        
         document.getElementById('user-name').textContent = this.state.user.nome;
         document.getElementById('user-role').textContent = this.state.user.role;
         
+        // Mostra conteúdo exclusivo para admin.
         if (this.state.user.role === 'admin') {
-            document.getElementById('admin-content').style.display = 'block';
+            const adminContent = document.getElementById('admin-content');
+            if (adminContent) adminContent.style.display = 'block';
         }
 
         document.getElementById('logout-button').addEventListener('click', () => this.logout());
     },
 
-    // Função de Logout
+    // Limpa o estado de login e redireciona para a página de login.
     async logout() {
         if(this.state.token) {
+            // Informa a API que o token não deve mais ser válido (opcional, mas boa prática).
             await this.apiRequest('POST', { action: 'logout', token: this.state.token });
         }
         localStorage.removeItem('mafagafo_token');
         this.state.token = null;
         this.state.user = null;
-        history.pushState({ path: '/login' }, '', '/login');
-        router.resolve('/login');
+        history.pushState({ path: router.repoName + '/login' }, '', router.repoName + '/login');
+        router.resolve(router.repoName + '/login');
     },
 
-    // Função genérica para fazer requisições à API
+    // Função central para fazer requisições à API do Google Apps Script.
     async apiRequest(method, params) {
         try {
             let response;
@@ -140,7 +143,7 @@ const app = {
                     mode: 'cors',
                     redirect: 'follow',
                     body: JSON.stringify(params),
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' } // Necessário para o Apps Script
                 });
             }
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -151,8 +154,8 @@ const app = {
             return { success: false, message: 'Erro de comunicação.' };
         }
     },
-    
-    // Exibe mensagem de erro nos formulários
+
+    // Mostra mensagens de erro nos formulários.
     displayError(message) {
         const errorElement = document.getElementById('error-message');
         if(errorElement) {
@@ -160,7 +163,7 @@ const app = {
         }
     },
 
-    // Controla a exibição do loader nos botões
+    // Controla o estado de carregamento dos botões.
     toggleLoader(show, buttonId) {
         const button = document.getElementById(buttonId);
         if (!button) return;
@@ -179,5 +182,6 @@ const app = {
     }
 };
 
+// Inicializa a aplicação.
 window.app = app;
 app.init();
