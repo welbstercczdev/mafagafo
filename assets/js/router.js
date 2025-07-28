@@ -3,14 +3,17 @@ const router = {
     appElement: document.getElementById('app'),
     repoName: '/mafagafo',
 
+    // Função que limpa a URL para obter a rota desejada (ex: /login)
     getCleanPath(path) {
         if (path.startsWith(this.repoName)) {
             let cleanPath = path.substring(this.repoName.length);
-            return cleanPath || '/login';
+            // Se for a raiz do projeto, define como /login. ESSA É A CHAVE.
+            return cleanPath || '/login'; 
         }
         return path === '/' ? '/login' : path;
     },
 
+    // Carrega o conteúdo HTML de uma view
     async loadView(path) {
         try {
             const response = await fetch(`views${path}.html`);
@@ -18,52 +21,62 @@ const router = {
             return await response.text();
         } catch (error) {
             console.error('Erro ao carregar a view:', error);
+            // Se uma view não for encontrada, carrega o login como segurança.
             return await (await fetch('views/login.html')).text();
         }
     },
 
+    // A função central que decide o que mostrar na tela.
     async resolve(path) {
-        // Limpa o conteúdo antigo e mostra um loader.
+        // 1. Limpa a tela e mostra um loader.
         this.appElement.innerHTML = '<div class="auth-container"><div class="auth-card" style="text-align:center;"><div class="loader" style="border-color: #ccc; border-top-color: var(--primary-color);"></div></div></div>';
         
-        const cleanPath = this.getCleanPath(path);
-        
-        // **LÓGICA DE NAVEGAÇÃO MOVIDA PARA CÁ**
-        // Se o usuário está logado e tenta acessar login/register, muda o caminho para o dashboard.
-        if ((cleanPath === '/login' || cleanPath === '/register') && window.app.state.user) {
-            history.replaceState({ path: this.repoName + '/dashboard' }, '', this.repoName + '/dashboard');
-            return this.resolve(this.repoName + '/dashboard'); // Reinicia o resolve com o caminho correto.
+        let cleanPath = this.getCleanPath(path);
+
+        // 2. LÓGICA DE PROTEÇÃO DE ROTA (centralizada aqui)
+        const userIsLoggedIn = !!window.app.state.user;
+
+        if ((cleanPath === '/login' || cleanPath === '/register') && userIsLoggedIn) {
+            cleanPath = '/dashboard'; // Se logado, não pode ver login/registro.
+            history.replaceState({ path: this.repoName + cleanPath }, '', this.repoName + cleanPath);
         }
-        // Se o usuário NÃO está logado e tenta acessar o dashboard, muda o caminho para o login.
-        if (cleanPath === '/dashboard' && !window.app.state.user) {
-            history.replaceState({ path: this.repoName + '/login' }, '', this.repoName + '/login');
-            return this.resolve(this.repoName + '/login');
+        if (cleanPath === '/dashboard' && !userIsLoggedIn) {
+            cleanPath = '/login'; // Se não logado, não pode ver o dashboard.
+            history.replaceState({ path: this.repoName + cleanPath }, '', this.repoName + cleanPath);
         }
 
+        // 3. Carrega e exibe o HTML da view correta.
         const html = await this.loadView(cleanPath);
-        this.appElement.innerHTML = html; // Substitui o loader pelo conteúdo final.
-        window.app.initPage(cleanPath); // Chama o app.js para adicionar eventos.
+        this.appElement.innerHTML = html;
+        
+        // 4. Chama o app.js para adicionar a interatividade (eventos de clique).
+        window.app.initPage(cleanPath);
     },
 
+    // Lida com cliques em links internos da aplicação
     handle(event) {
         event.preventDefault();
-        const relativePath = event.target.getAttribute('href');
-        const fullPath = this.repoName + relativePath;
+        const fullPath = this.repoName + event.target.getAttribute('href');
         history.pushState({ path: fullPath }, '', fullPath);
         this.resolve(fullPath);
     },
 
+    // Ponto de entrada do roteador
     init() {
-        let path;
+        let initialPath = window.location.pathname;
         if (sessionStorage.redirect) {
-            path = new URL(sessionStorage.redirect).pathname;
+            initialPath = new URL(sessionStorage.redirect).pathname;
             sessionStorage.removeItem('redirect');
-            history.replaceState({ path }, '', path);
-        } else {
-            path = window.location.pathname;
+            history.replaceState({ path: initialPath }, '', initialPath);
         }
-        this.resolve(path);
-        window.addEventListener('popstate', e => this.resolve(e.state ? e.state.path : this.repoName + '/'));
+        
+        this.resolve(initialPath);
+
+        // Ouve os botões "voltar/avançar" do navegador
+        window.addEventListener('popstate', e => {
+            const path = e.state ? e.state.path : this.repoName + '/';
+            this.resolve(path);
+        });
     }
 };
 
