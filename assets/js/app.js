@@ -1,10 +1,11 @@
+// assets/js/app.js (VERSÃO FINAL E CORRETA)
 const app = {
-    // !! IMPORTANTE: ESTA URL VAI MUDAR NO PRÓXIMO PASSO !!
     apiBaseUrl: 'https://script.google.com/macros/s/AKfycbxAHYiMkLBiO_rPcjFbVoJazEvFattfVMIaWjBP8csZ5mv1Hk88t4MzWcq5jv8wKnagLg/exec',
-    
     state: { user: null, token: localStorage.getItem('mafagafo_token') },
 
-    init() { this.checkAuthAndRoute(); },
+    init() {
+        this.checkAuthAndRoute();
+    },
 
     async checkAuthAndRoute() {
         if (this.state.token) {
@@ -12,19 +13,15 @@ const app = {
             if (result.success) {
                 this.state.user = result.user;
             } else {
-                this.state.token = null;
                 localStorage.removeItem('mafagafo_token');
+                this.state.token = null;
             }
         }
-        router.init();
+        router.init(); // Inicia o roteador DEPOIS de saber o status de login.
     },
 
+    // Esta função agora só adiciona eventos, ela não navega mais.
     initPage(path) {
-        if (path === '/dashboard' && !this.state.user) { return this.logout(); }
-        if ((path === '/login' || path === '/register') && this.state.user) {
-            history.replaceState({ path: router.repoName + '/dashboard' }, '', router.repoName + '/dashboard');
-            return router.resolve(router.repoName + '/dashboard');
-        }
         if (path === '/login') this.initLoginPage();
         if (path === '/register') this.initRegisterPage();
         if (path === '/dashboard') this.initDashboardPage();
@@ -45,9 +42,11 @@ const app = {
             if (result.success) {
                 localStorage.setItem('mafagafo_token', result.token);
                 this.state.token = result.token;
-                await this.checkAuthAndRoute();
+                this.state.user = (await this.apiRequest('GET', { action: 'verifyToken', token: result.token })).user;
+                // Apenas chama o resolve, sem mudar a URL aqui.
+                router.resolve('/dashboard');
             } else {
-                this.displayError(result.message || 'Falha no login. Verifique suas credenciais.');
+                this.displayError(result.message || 'Falha no login.');
             }
         });
     },
@@ -67,8 +66,7 @@ const app = {
             this.toggleLoader(false, 'register-button');
             if (result.success) {
                 alert('Cadastro realizado com sucesso! Você será redirecionado para a tela de login.');
-                history.pushState({ path: router.repoName + '/login' }, '', router.repoName + '/login');
-                router.resolve(router.repoName + '/login');
+                router.resolve('/login');
             } else {
                 this.displayError(result.message || 'Não foi possível realizar o cadastro.');
             }
@@ -76,7 +74,7 @@ const app = {
     },
 
     initDashboardPage() {
-        if (!this.state.user) return this.logout();
+        if (!this.state.user) return; // Segurança extra
         document.getElementById('user-name').textContent = this.state.user.nome;
         document.getElementById('user-role').textContent = this.state.user.role;
         if (this.state.user.role === 'admin') {
@@ -91,8 +89,7 @@ const app = {
         localStorage.removeItem('mafagafo_token');
         this.state.token = null;
         this.state.user = null;
-        history.pushState({ path: router.repoName + '/login' }, '', router.repoName + '/login');
-        router.resolve(router.repoName + '/login');
+        router.resolve('/login');
     },
 
     async apiRequest(method, params) {
@@ -103,9 +100,7 @@ const app = {
                 response = await fetch(`${this.apiBaseUrl}?${query}`);
             } else {
                 response = await fetch(this.apiBaseUrl, {
-                    method: 'POST',
-                    mode: 'cors',
-                    redirect: 'follow',
+                    method: 'POST', mode: 'cors', redirect: 'follow',
                     body: JSON.stringify(params),
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' }
                 });
