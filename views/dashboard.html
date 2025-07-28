@@ -1,3 +1,4 @@
+<!-- views/dashboard.html -->
 <div class="dashboard-container">
     <header class="dashboard-header">
         <h1>Console Mafagafo</h1>
@@ -6,30 +7,16 @@
     <main class="dashboard-content">
         <h3>Olá, <span id="user-name"></span>!</h3>
         <p>Gerencie seus projetos abaixo.</p>
-
-        <!-- Seção para criar um novo projeto -->
         <div class="content-box">
             <h4>Criar Novo Projeto</h4>
             <form id="create-project-form">
-                <div class="input-group">
-                    <label for="project-name">Nome do Projeto</label>
-                    <input type="text" id="project-name" name="project-name" required placeholder="Ex: Meu Blog Pessoal">
-                </div>
-                <button type="submit" class="btn-primary" id="create-project-button">
-                    <span class="btn-text">Criar Projeto</span>
-                    <div class="loader" style="display: none;"></div>
-                </button>
+                <input type="text" id="project-name" required placeholder="Nome do Projeto">
+                <button type="submit" id="create-project-button">Criar Projeto</button>
             </form>
-            <div id="project-error-message" class="error-message"></div>
         </div>
-
-        <!-- Seção para listar os projetos existentes -->
-        <div class="content-box" style="margin-top: 2rem;">
+        <div class="content-box">
             <h4>Meus Projetos</h4>
-            <div id="projects-list">
-                <!-- A lista de projetos será inserida aqui pelo JavaScript -->
-                <p>Carregando projetos...</p>
-            </div>
+            <div id="projects-list"></div>
         </div>
     </main>
 </div>
