@@ -1,68 +1,60 @@
-// assets/js/router.js (CORRIGIDO)
+// assets/js/router.js (VERSÃO FINAL)
 const router = {
-    routes: {},
     appElement: document.getElementById('app'),
-    repoName: '/mafagafo', // Nome do repositório no GitHub
+    // Define o nome do repositório para construir os caminhos corretamente.
+    repoName: '/mafagafo',
 
-    // Função para limpar o caminho da URL, removendo o nome do repositório
+    // Limpa o caminho da URL, removendo o nome do repositório.
+    // Ex: transforma "/mafagafo/login" em "/login".
     getCleanPath(path) {
         if (path.startsWith(this.repoName)) {
             let cleanPath = path.substring(this.repoName.length);
-            if (!cleanPath) { // Se o resultado for uma string vazia, significa que é a raiz
-                return '/login';
-            }
-            return cleanPath;
+            // Se o caminho for a raiz do projeto (ex: "/mafagafo/"), define como "/login".
+            return cleanPath || '/login';
         }
-        // Se o caminho já for limpo (ex: /login), retorna como está
         return path === '/' ? '/login' : path;
     },
 
-    add(path, view) {
-        this.routes[path] = view;
-    },
-
+    // Carrega o conteúdo HTML de uma view.
     async loadView(path) {
         try {
-            // Usa a tag <base> para encontrar a view corretamente
+            // A tag <base> no index.html garante que 'views/...' seja encontrado corretamente.
             const response = await fetch(`views${path}.html`);
-            if (!response.ok) throw new Error("Página não encontrada");
+            if (!response.ok) throw new Error("View não encontrada");
             return await response.text();
         } catch (error) {
             console.error('Erro ao carregar a view:', error);
-            // Carrega um 404 interno se a view não existir
-            const errorResponse = await fetch('views/login.html'); 
-            return await errorResponse.text();
+            // Em caso de erro, carrega a view de login como fallback.
+            return await (await fetch('views/login.html')).text();
         }
     },
 
+    // Resolve uma rota: encontra a view, carrega e inicializa a página.
     async resolve(path) {
         const cleanPath = this.getCleanPath(path);
         
+        // Exibe um loader enquanto a view está sendo carregada.
         this.appElement.innerHTML = '<div class="auth-container"><div class="auth-card" style="text-align:center;"><div class="loader" style="border-color: #ccc; border-top-color: var(--primary-color);"></div></div></div>';
         
-        const viewPath = this.routes[cleanPath] || '/login.html';
         const html = await this.loadView(cleanPath);
-        
         this.appElement.innerHTML = html;
+        // Chama a função do app.js para adicionar os event listeners da página carregada.
         window.app.initPage(cleanPath);
     },
 
+    // Lida com cliques em links da SPA.
     handle(event) {
         event.preventDefault();
-        const path = event.target.getAttribute('href'); // ex: "/login"
-        const fullPath = this.repoName + path; // ex: "/mafagafo/login"
+        const relativePath = event.target.getAttribute('href'); // ex: "/login"
+        const fullPath = this.repoName + relativePath; // ex: "/mafagafo/login"
         history.pushState({ path: fullPath }, '', fullPath);
         this.resolve(fullPath);
     },
 
+    // Ponto de entrada do roteador.
     init() {
-        // Adiciona as rotas
-        this.add('/login', 'views/login.html');
-        this.add('/register', 'views/register.html');
-        this.add('/dashboard', 'views/dashboard.html');
-
         let path;
-        // Lógica de redirecionamento do 404.html
+        // Verifica se veio de um redirecionamento do 404.html.
         if (sessionStorage.redirect) {
             path = new URL(sessionStorage.redirect).pathname;
             sessionStorage.removeItem('redirect');
@@ -71,16 +63,10 @@ const router = {
             path = window.location.pathname;
         }
 
-        // Garante que o usuário autenticado vá para o dashboard
-        const token = localStorage.getItem('mafagafo_token');
-        if (token && this.getCleanPath(path) === '/login') {
-            const dashboardPath = this.repoName + '/dashboard';
-            history.replaceState({ path: dashboardPath }, '', dashboardPath);
-            this.resolve(dashboardPath);
-        } else {
-            this.resolve(path);
-        }
+        // Lida com o carregamento inicial da página.
+        this.resolve(path);
 
+        // Ouve o evento de "voltar" do navegador.
         window.addEventListener('popstate', event => {
             const newPath = event.state ? event.state.path : (this.repoName + '/');
             this.resolve(newPath);
@@ -88,5 +74,4 @@ const router = {
     }
 };
 
-// O app.js irá chamar router.init()
 window.router = router;
