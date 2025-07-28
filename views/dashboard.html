@@ -1,0 +1,21 @@
+<div class="dashboard-container">
+    <header class="dashboard-header">
+        <h1>Dashboard</h1>
+        <button id="logout-button" class="btn-secondary">Sair</button>
+    </header>
+    <main class="dashboard-content">
+        <h3>Olá, <span id="user-name"></span>!</h3>
+        <p>Seu acesso é de: <span id="user-role" class="badge"></span></p>
+
+        <div class="content-box">
+            <h4>Seu Conteúdo Protegido</h4>
+            <p>Este conteúdo só pode ser visto por usuários autenticados.</p>
+        </div>
+        
+        <!-- Conteúdo exclusivo para Admin -->
+        <div id="admin-content" class="content-box admin-only" style="display: none;">
+            <h4>Painel do Administrador</h4>
+            <p>Esta área é visível apenas para usuários com a permissão de "admin".</p>
+        </div>
+    </main>
+</div>
